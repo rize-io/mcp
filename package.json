@@ -1,0 +1,12 @@
+{
+  "name": "@rize/desktop-extension",
+  "version": "1.0.0",
+  "description": "Rize desktop extension — stdio proxy to the hosted Rize MCP server",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "server/index.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  }
+}

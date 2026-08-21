@@ -1,0 +1,340 @@
+{
+  "manifest_version": "0.3",
+  "name": "rize",
+  "display_name": "Rize",
+  "version": "1.0.0",
+  "description": "Automatic time tracking. Review and create time entries, manage clients and projects, and analyze contract profitability.",
+  "long_description": "Rize is an automatic time tracker that shows where your time goes and whether it is profitable. This extension connects Claude to your Rize workspace over OAuth so you can review and approve AI-generated time entries, log work, manage clients, projects, tasks, and labels, and pull contract and organization profitability without leaving the conversation. Access is scoped to the signed-in user's own workspaces and role.",
+  "author": {
+    "name": "Rize",
+    "email": "support@rize.io",
+    "url": "https://github.com/rize-io"
+  },
+  "homepage": "https://rize.io",
+  "documentation": "https://docs.rize.io/mcp",
+  "support": "https://docs.rize.io/mcp",
+  "icon": "icon.png",
+  "keywords": [
+    "time tracking",
+    "productivity",
+    "profitability",
+    "timesheets",
+    "consulting"
+  ],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://rize.io/privacy-policy"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ]
+    }
+  },
+  "tools_generated": false,
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  },
+  "tools": [
+    {
+      "name": "add_note",
+      "description": "Add a note about what you're working on. Notes give Rize context to improve time tracking accuracy."
+    },
+    {
+      "name": "approve_tag_suggestion",
+      "description": "Approve an AI-generated tag suggestion (client, project, or task) on a time entry. This assigns the suggested entity to the time entry. Use list_my_time_entries to see tag suggestions with confidence scores on pending entries."
+    },
+    {
+      "name": "approve_time_entries",
+      "description": "Approve pending AI-generated time entry suggestions, making them active entries. Optionally assign client/project/task during approval in a single operation."
+    },
+    {
+      "name": "create_client",
+      "description": "Create a client (customer/account), or update and reactivate an existing client with the same name. Clients are top-level entities that projects and time entries can be assigned to."
+    },
+    {
+      "name": "create_contract",
+      "description": "Create a new contract for profitability tracking. Contracts define billing arrangements (hourly, retainer, fixed fee) with clients. Automatically creates the first contract period. Use get_current_user to get org_id. Pass client_name or org_client_id to link a client."
+    },
+    {
+      "name": "create_expense",
+      "description": "Add an expense to a contract period. Expenses can be pass-through, delivery, or overhead. Categories: ad_spend, vendor, freelancer, software, other. Get the contract_period_id from get_contract. Metrics recompute automatically after adding."
+    },
+    {
+      "name": "create_keyword",
+      "description": "Create a new keyword (auto-tagging rule). Keywords auto-tag time entries when the keyword text matches in window titles, URLs, or app names. Each keyword maps to a client, project, or task."
+    },
+    {
+      "name": "create_label",
+      "description": "Create a new label for categorizing time entries. Requires team admin role. Labels have a name, description, and AI prompt used for automatic classification."
+    },
+    {
+      "name": "create_project",
+      "description": "Create a project, or update an existing project with the same name, optionally under a client. Projects organize time entries and can be assigned to time entries directly."
+    },
+    {
+      "name": "create_revenue_entry",
+      "description": "Add a revenue entry to a contract period. Categories: setup_fee, consulting, upsell, adjustment, other. Get the contract_period_id from get_contract."
+    },
+    {
+      "name": "create_task",
+      "description": "Create a task, or update an existing task with the same name, optionally under a project or with a due date/reminder. Tasks are the most granular unit of work and can be assigned to team members."
+    },
+    {
+      "name": "create_time_entry",
+      "description": "Create a time entry with optional client, project, and task assignment. If a matching active entry overlaps the requested range, Rize extends and updates that entry instead. Supports idempotency keys to prevent duplicate entries on retry. Times must be in ISO 8601 format — convert user-local times to their timezone (provided as _user_timezone in responses) before sending."
+    },
+    {
+      "name": "delete_keyword",
+      "description": "Delete (archive) a keyword. The keyword will no longer be used for auto-tagging. Use list_keywords to find the keyword ID first."
+    },
+    {
+      "name": "delete_label",
+      "description": "Delete a label by ID. Requires team admin role. The label is soft-deleted and will no longer appear in label lists."
+    },
+    {
+      "name": "delete_time_entry",
+      "description": "Delete a time entry by ID. Works on entries of any status (active, pending, failed, etc.)."
+    },
+    {
+      "name": "dictate",
+      "description": "DEPRECATED: Use add_note instead. This tool now delegates to add_note."
+    },
+    {
+      "name": "generate_time_entries",
+      "description": "Generate AI time entries for a time range. Analyzes the user's actual activity — apps, websites, meetings — and uses clustering to create multiple entries based on natural activity groups. By default, skips time slots where previous entries were rejected. Rate limited: 15 per minute."
+    },
+    {
+      "name": "get_ai_effectiveness_stats",
+      "description": "Get AI effectiveness metrics for time entry creation and tagging. Shows acceptance rates, tagging coverage, label coverage, AI vs manual breakdown, confidence scores, and trends. Use to assess how well Rize's AI is performing for a team or user."
+    },
+    {
+      "name": "get_contract",
+      "description": "Get a single contract with all its periods and profitability details."
+    },
+    {
+      "name": "get_contract_profitability",
+      "description": "Get profitability metrics for a specific contract in a date range. Returns revenue, costs, margin, hours, budget burn, and period dates. Use list_contracts to find contract IDs. All monetary values are in cents."
+    },
+    {
+      "name": "get_current_user",
+      "description": "Get the authenticated user's profile including name, email, timezone, default team, team memberships (team id, name, role, status), and organization info (id, name, logo, role, finance permission). Call this first to get your org_id and team_id for other tools."
+    },
+    {
+      "name": "get_help",
+      "description": "Get documentation on how to use Rize MCP tools. Pass a topic to get specific help, or omit for an overview. Topics: time_tracking, profitability, team_management, clients_projects, keywords, skills, reports_routines."
+    },
+    {
+      "name": "get_login_url",
+      "description": "Returns the Rize login URL so the user can authenticate in their browser. No authentication required. Use this when the user needs to log in or connect their Rize account."
+    },
+    {
+      "name": "get_member_agent_settings",
+      "description": "Get another workspace member's agent settings: their personal guidance, tagging instructions, and activity summary instructions. Admins only (org admins, plus admins of an active team the member belongs to) — returns not-found otherwise. Find identity ids via list_workspace_members. For your OWN settings use get_tagging_settings."
+    },
+    {
+      "name": "get_my_time_allocation",
+      "description": "Get the current user's own time allocation summary. By default returns the full view — breakdowns by client, project, task, AND label — plus totals and billable hours. Pass group_by to fetch a single breakdown. For team-wide allocation (admin only), use get_team_time_allocation instead."
+    },
+    {
+      "name": "get_my_time_tracking_signals",
+      "description": "Get your recent time tracking signals — the individual AI actions and user feedback events that make up your time tracking history. Returns events like entry accepts/rejects, tag suggestions, label changes, and manual edits with full metadata (reasoning, confidence, tag_type, before/after values). Use alongside get_ai_effectiveness_stats to drill into the 'why' behind aggregate metrics."
+    },
+    {
+      "name": "get_org_profitability",
+      "description": "Get aggregated profitability metrics across all non-archived contracts for an organization in a date range. Returns revenue, costs, margin, and hours. For per-contract detail use get_contract_profitability. All monetary values are in cents."
+    },
+    {
+      "name": "get_product_docs",
+      "description": "Get documentation about the Rize product itself: what Rize can do, which integrations are supported, and where to find help articles. Use this to answer questions about Rize features, integrations, platforms, or setup — never guess. Pass a `query` to search all documentation pages and get the matching ones back with their URLs — prefer this over the static topics when the question is about a specific feature. Use topic \"support\" whenever the docs don't cover the question, the user hit a bug, or they want to request a feature — it returns where to reach a human instead of guessing. Topics: overview, integrations, docs_index, support."
+    },
+    {
+      "name": "get_profitability_trend",
+      "description": "Get monthly revenue, cost, and expense totals for a date range. Returns one data point per month across all non-archived contracts. Useful for spotting trends and comparing periods. All monetary values are in cents."
+    },
+    {
+      "name": "get_report_run",
+      "description": "Get a single report run by ID, including the parent report metadata and all AI analyses with summaries and insights."
+    },
+    {
+      "name": "get_routine_run",
+      "description": "Get a single routine run by ID, including the parent routine metadata and all briefs the run produced with their markdown bodies."
+    },
+    {
+      "name": "get_skill",
+      "description": "Get one reusable prompt skill by ID. Use this when the user references a skill chip or a rize://skill/:id link."
+    },
+    {
+      "name": "get_tagging_settings",
+      "description": "Get the current user's auto-tagging settings: generation mode, entry duration preferences, auto-approve threshold, which tag dimensions are automated, the custom instructions for tagging and activity summaries, and the agent guidance layered onto their runs (personal, plus their default team/workspace guidance). Read-only — use update_tagging_settings to change your own settings. Admins: manage other members via get/update_member_agent_settings, teams via update_team_agent_context, and the workspace via update_workspace_agent_context."
+    },
+    {
+      "name": "get_team_time_allocation",
+      "description": "Get time allocation summary across all team members (team admin only). Returns total hours, billable hours, and breakdown by grouping. Use creator_emails to filter to specific people. Non-admins will only see their own allocation."
+    },
+    {
+      "name": "get_time_entry",
+      "description": "Get a single time entry by ID with all details including client, project, task, billing info, and AI confidence data."
+    },
+    {
+      "name": "invite_team_member",
+      "description": "Invite a new member to a team by email. Sends an invitation email. Requires team admin or org admin permissions. Naturally idempotent — re-inviting an existing member returns the existing record."
+    },
+    {
+      "name": "list_clients",
+      "description": "List clients (customers/accounts) with their hourly rates and team associations. Use client IDs when creating or updating time entries."
+    },
+    {
+      "name": "list_contracts",
+      "description": "List contracts for an organization. Contracts track billing arrangements with clients including hourly rates, retainers, and profitability metrics. Archived contracts are excluded by default — pass status to filter. Use contract IDs with get_contract_profitability."
+    },
+    {
+      "name": "list_keywords",
+      "description": "List active keywords (auto-tagging rules) for the current user. Keywords map text patterns to clients, projects, or tasks — when a keyword appears in a window title, URL, or app name, the time entry is auto-tagged to the parent entity. Must specify tag_type to scope the query."
+    },
+    {
+      "name": "list_labels",
+      "description": "List labels available for tagging time entries. Use label IDs when updating time entries."
+    },
+    {
+      "name": "list_my_apps_used",
+      "description": "List the authenticated user's own apps and websites used in a date range, sorted by time spent. Returns app name, URL, time spent, and category."
+    },
+    {
+      "name": "list_my_calendar_events",
+      "description": "List calendar events (meetings, appointments) for a single day from the user's connected calendars. Returns title, start/end times, attendees, location, and video conference link per event. For raw tracked activity (app switches, website visits) use list_my_events instead."
+    },
+    {
+      "name": "list_my_events",
+      "description": "List raw tracking events (app switches, website visits) for the authenticated user in a date range. Max 7-day range. Returns app name, URL, URL host, title, source, and timestamps. Use list_my_apps_used for aggregated summaries instead."
+    },
+    {
+      "name": "list_my_keyword_matches",
+      "description": "List deterministic keyword-rule matches over the user's tracked time in a date range. Each match is a time window where a keyword rule fired, naming the client/project/task/label it points at. Use these as ground truth when tagging or creating time entries — a keyword match covering an entry's time range is strong evidence for that tag."
+    },
+    {
+      "name": "list_my_time_entries",
+      "description": "List the current user's own time entries for a date range. For team-wide entries (admin only), use list_team_time_entries instead. Returns all statuses except rejected by default (tracking, segmenting, active, pending, generating, failed), so you can see live tracked and unprocessed time as well as reviewable suggestions. Sorted by start time with client/project/task details and formatted durations."
+    },
+    {
+      "name": "list_projects",
+      "description": "List projects with their client associations and team info. Use project IDs when creating or updating time entries."
+    },
+    {
+      "name": "list_report_runs",
+      "description": "List report runs for the current user's reports. Returns runs ordered by most recent first, with nested report metadata and AI analyses. Filter by report ID or status (pending, running, ready, failed)."
+    },
+    {
+      "name": "list_routine_runs",
+      "description": "List routine runs for the current user. Returns runs ordered by most recent first, with nested routine metadata and the briefs each run produced. Filter by routine ID or status (pending, running, ready, failed)."
+    },
+    {
+      "name": "list_skills",
+      "description": "List the reusable prompt skills visible to the authenticated user."
+    },
+    {
+      "name": "list_tasks",
+      "description": "List tasks with their project and assignee associations. Use task IDs when creating or updating time entries."
+    },
+    {
+      "name": "list_team_members",
+      "description": "List team members with their roles, managers, hourly rates, and cost rates. Any team member can list: org and team admins and viewers see the whole roster, managers see their direct reports plus themselves, members see only themselves. Archived members are never returned. Rates require team admin, org admin, or finance permissions. Cost rates affect profitability calculations (delivery_labor_cost_cents)."
+    },
+    {
+      "name": "list_team_time_entries",
+      "description": "List time entries across all team members (team admin only). Returns entries for the entire team by default. Use creator_emails to filter to specific people. Non-admins will only see their own entries. Sorted by start time."
+    },
+    {
+      "name": "list_teams",
+      "description": "List the teams the authenticated user can access — org admins see every team in their orgs. The user's default team is returned first. Use this to obtain a team_id for other tools (time entries, allocations, team members). Each team includes agent_context (the standing guidance applied to its members' agent runs) when the caller can edit it — team admins and org admins; null otherwise."
+    },
+    {
+      "name": "list_workspace_members",
+      "description": "List the workspace (organization) roster with per-team assignments. Visibility depends on your role: workspace admins see everyone, team admins and viewers see their teams, managers see their direct reports, plain members see an empty roster. Rates are only returned for workspace admins and finance grantees. Get workspace_id from get_current_user (org.id)."
+    },
+    {
+      "name": "query_org_context",
+      "description": "Search an organization's uploaded context documents (contracts, invoices, PDFs, etc.) using semantic retrieval. Returns the most relevant text chunks with source file names and relevance scores. Use this when the user asks about org-specific documents or context they have uploaded."
+    },
+    {
+      "name": "regenerate_time_entry",
+      "description": "Regenerate AI content for a pending or failed time entry. Useful when generation failed or you want a better title/description. Optionally provide custom instructions to guide the AI. Rate limited: max 3 regenerations per entry, 15 per minute."
+    },
+    {
+      "name": "reject_time_entries",
+      "description": "Reject pending AI-generated time entry suggestions. Rejected entries are kept but hidden from active views."
+    },
+    {
+      "name": "remove_team_member",
+      "description": "Remove a member from a team. The membership is archived, not deleted — historical time entries are kept and re-inviting the person restores it. Requires team admin or org admin permissions. Use list_team_members to find team_member_id values."
+    },
+    {
+      "name": "search_my_meetings",
+      "description": "Search the current user's calendar events and meeting transcripts over a date range. Use this for what was scheduled, who attended, what was discussed, or finding the recording behind a meeting."
+    },
+    {
+      "name": "sign_up",
+      "description": "Create a new Rize account via magic link. Sends a sign-in link to the user's email. After clicking the link, the user should download the Rize desktop app to start tracking time automatically."
+    },
+    {
+      "name": "update_client",
+      "description": "Update an existing client's name, hourly rate, color, status, keywords (for auto-tagging keyword matching), or prompt (AI context for tagging)."
+    },
+    {
+      "name": "update_contract",
+      "description": "Update a contract's billing details. Changes to rate fields are synced to the current period."
+    },
+    {
+      "name": "update_keyword",
+      "description": "Update an existing keyword's text, match type, or field. Use list_keywords to find the keyword ID first."
+    },
+    {
+      "name": "update_label",
+      "description": "Update an existing label's name, description, prompt, color, or status. Requires team admin role."
+    },
+    {
+      "name": "update_member_agent_settings",
+      "description": "Update another workspace member's agent settings: their personal guidance, tagging instructions, and/or activity summary instructions. Admins only (org admins, plus admins of an active team the member belongs to). Omitted fields are left unchanged; pass an empty string to clear one. Read current values first with get_member_agent_settings. For your OWN settings use update_tagging_settings."
+    },
+    {
+      "name": "update_project",
+      "description": "Update an existing project's name, client, color, status, keywords (for auto-tagging keyword matching), or prompt (AI context for tagging)."
+    },
+    {
+      "name": "update_tagging_settings",
+      "description": "Update your AI tagging settings: tracking mode, minimum entry duration, auto-approve threshold, and custom instructions for how the AI should tag your time entries and generate activity summaries. Which tag dimensions are automated is user-managed and not changeable here. Use get_tagging_settings to read current values first."
+    },
+    {
+      "name": "update_task",
+      "description": "Update an existing task's name, project, assignee, color, status, or keywords (for auto-tagging keyword matching)."
+    },
+    {
+      "name": "update_team_agent_context",
+      "description": "Set a team's standing agent guidance — injected into every team member's agent runs (chat, reports, routines, tagging). Team admins and org admins only. Read current values via list_teams. May embed skills as markdown links like [Name](rize://skill/ID); only team- or workspace-visible skills are accepted. Pass an empty string to clear."
+    },
+    {
+      "name": "update_team_member",
+      "description": "Update a team member's role, title, manager, hourly rate, cost rate, or billable default. Requires team admin or org admin permissions. Use list_team_members to find team_member_id values."
+    },
+    {
+      "name": "update_time_entry",
+      "description": "Update an existing time entry. Supports changing times, title, description, billing, label, and entity reassignment (client, project, task). Changing team_id clears entity assignments."
+    },
+    {
+      "name": "update_workspace_agent_context",
+      "description": "Set the workspace's standing agent guidance — injected into every member's agent runs (chat, reports, routines, tagging). Workspace admins only. Read the current value via get_tagging_settings (org_agent_context). May embed skills as markdown links like [Name](rize://skill/ID); only workspace-visible skills are accepted. Pass an empty string to clear."
+    }
+  ]
+}
