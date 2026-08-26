@@ -158,7 +158,7 @@
     },
     {
       "name": "get_product_docs",
-      "description": "Get documentation about the Rize product itself: what Rize can do, which integrations are supported, and where to find help articles. Use this to answer questions about Rize features, integrations, platforms, or setup — never guess. Pass a `query` to search all documentation pages and get the matching ones back with their URLs — prefer this over the static topics when the question is about a specific feature. Use topic \"support\" whenever the docs don't cover the question, the user hit a bug, or they want to request a feature — it returns where to reach a human instead of guessing. Topics: overview, integrations, docs_index, support."
+      "description": "Get documentation about the Rize product itself: what Rize can do, which integrations are supported, and where to find help articles. Use this to answer questions about Rize features, integrations, platforms, or setup — never guess. Pass a `query` to search the documentation and get the matching sections back as the docs' own prose, each with a deep link — prefer this over the static topics when the question is about a specific feature, and quote the returned steps rather than paraphrasing them. Colloquial wording works: the search widens common phrasings (\"clip\", \"overlay\", \"that bar\") to the product's own vocabulary. Use topic \"support\" whenever the docs don't cover the question, the user hit a bug, or they want to request a feature — it returns where to reach a human instead of guessing. Topics: overview, integrations, docs_index, support."
     },
     {
       "name": "get_profitability_trend",
@@ -187,6 +187,10 @@
     {
       "name": "get_time_entry",
       "description": "Get a single time entry by ID with all details including client, project, task, billing info, and AI confidence data."
+    },
+    {
+      "name": "get_ui_map",
+      "description": "Find where a control actually lives in Rize: the desktop menu bar, the Desktop Widget menu, and the app's settings panes, each as a full click path like \"Widget > Show on Desktop\". Use this whenever the user asks where a setting is, how to turn something on or off, or how to reach a screen — the paths come from the shipping navigation, so quote them exactly and never invent a screen that is not listed. An entry marked with an access note is only there for users who have that grant, so say so rather than sending everyone to it. Pair it with get_product_docs, which explains what a setting does; this tool says where to click. Pass a `query` to search, or omit it for the full map."
     },
     {
       "name": "get_workspace_time_allocation",
