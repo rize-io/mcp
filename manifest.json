@@ -189,6 +189,10 @@
       "description": "Get a single time entry by ID with all details including client, project, task, billing info, and AI confidence data."
     },
     {
+      "name": "get_workspace_time_allocation",
+      "description": "Get time allocation across every team and person in the workspace in one call (workspace admins only; pass workspace_id from get_current_user org.id). Supports member grouping and per-day buckets — ideal for workspace reports and timesheet compliance (compact member×day summaries). Day buckets use the caller's timezone. Returns total hours, billable hours, and breakdown by grouping."
+    },
+    {
       "name": "invite_team_member",
       "description": "Invite a new member to a team by email. Sends an invitation email. Requires team admin or org admin permissions. Naturally idempotent — re-inviting an existing member returns the existing record."
     },
