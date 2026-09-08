@@ -198,7 +198,7 @@
     },
     {
       "name": "invite_team_member",
-      "description": "Invite a new member to a team by email. Sends an invitation email. Requires team admin or org admin permissions. Naturally idempotent — re-inviting an existing member returns the existing record."
+      "description": "Invite a new member to a team by email. Sends an invitation email. Requires team admin or org admin permissions. Title is stored on the workspace member, so setting it requires org admin access. Naturally idempotent — re-inviting an existing member returns the existing record."
     },
     {
       "name": "list_clients",
@@ -258,7 +258,7 @@
     },
     {
       "name": "list_team_members",
-      "description": "List team members with their roles, managers, hourly rates, and cost rates. Any team member can list: org and team admins and viewers see the whole roster, managers see their direct reports plus themselves, members see only themselves. Archived members are never returned. Rates require team admin, org admin, or finance permissions. Cost rates affect profitability calculations (delivery_labor_cost_cents)."
+      "description": "List team members with their workspace-level title, team roles, managers, hourly rates, and cost rates. Any team member can list: org and team admins and viewers see the whole roster, managers see their direct reports plus themselves, members see only themselves. Archived members are never returned. Rates require team admin, org admin, or finance permissions. Cost rates affect profitability calculations (delivery_labor_cost_cents)."
     },
     {
       "name": "list_team_time_entries",
@@ -334,7 +334,7 @@
     },
     {
       "name": "update_team_member",
-      "description": "Update a team member's role, title, manager, hourly rate, cost rate, or billable default. Requires team admin or org admin permissions. Use list_team_members to find team_member_id values."
+      "description": "Update a team member's team role, manager, hourly rate, cost rate, billable default, or workspace-level title. Team fields require team admin or org admin permissions. Title updates require self or org admin access. Use list_team_members to find team_member_id values."
     },
     {
       "name": "update_time_entry",
