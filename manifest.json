@@ -146,7 +146,7 @@
     },
     {
       "name": "get_my_time_allocation",
-      "description": "Get the current user's own time allocation summary. By default returns the full view — breakdowns by client, project, task, AND label — plus totals and billable hours. Pass group_by to fetch a single breakdown. For team-wide allocation (admin only), use get_team_time_allocation instead."
+      "description": "Get the current user's own time allocation summary. By default returns the full view — breakdowns by client, project, task, AND label — plus totals and billable hours. Pass group_by to fetch a single breakdown, including title. For team-wide allocation (admin only), use get_team_time_allocation instead."
     },
     {
       "name": "get_my_time_tracking_signals",
@@ -182,7 +182,7 @@
     },
     {
       "name": "get_team_time_allocation",
-      "description": "Get time allocation summary across all team members (team admin only). Returns total hours, billable hours, and breakdown by grouping. Use creator_emails to filter to specific people. Non-admins will only see their own allocation."
+      "description": "Get time allocation summary across all team members (team admin only). Returns total hours, billable hours, and breakdown by grouping, including workspace member title. Use creator_emails or member_titles to filter to specific people. Non-admins will only see their own allocation."
     },
     {
       "name": "get_time_entry",
@@ -194,7 +194,7 @@
     },
     {
       "name": "get_workspace_time_allocation",
-      "description": "Get time allocation across every team and person in the workspace in one call (workspace admins only; pass workspace_id from get_current_user org.id). Supports member grouping and per-day buckets — ideal for workspace reports and timesheet compliance (compact member×day summaries). Day buckets use the caller's timezone. Returns total hours, billable hours, and breakdown by grouping."
+      "description": "Get time allocation across every team and person in the workspace in one call (workspace admins only; pass workspace_id from get_current_user org.id). Supports member and title grouping plus per-day buckets — ideal for workspace reports and timesheet compliance (compact member×day summaries). Day buckets use the caller's timezone. Returns total hours, billable hours, and breakdown by grouping."
     },
     {
       "name": "invite_team_member",
