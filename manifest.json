@@ -258,7 +258,7 @@
     },
     {
       "name": "list_team_members",
-      "description": "List team members with their workspace-level title, team roles, managers, hourly rates, and cost rates. Any team member can list: org and team admins and viewers see the whole roster, managers see their direct reports plus themselves, members see only themselves. Archived members are never returned. Rates require team admin, org admin, or finance permissions. Cost rates affect profitability calculations (delivery_labor_cost_cents)."
+      "description": "List team members with their workspace-level title and department, team roles, managers, hourly rates, and cost rates. Any team member can list: org and team admins and viewers see the whole roster, managers see their direct reports plus themselves, members see only themselves. Archived members are never returned. Rates require team admin, org admin, or finance permissions. Cost rates affect profitability calculations (delivery_labor_cost_cents)."
     },
     {
       "name": "list_team_time_entries",
@@ -270,7 +270,7 @@
     },
     {
       "name": "list_workspace_members",
-      "description": "List the workspace (organization) roster with per-team assignments. Visibility depends on your role: workspace admins see everyone, team admins and viewers see their teams, managers see their direct reports, plain members see an empty roster. Rates are only returned for workspace admins and finance grantees. Get workspace_id from get_current_user (org.id)."
+      "description": "List the workspace (organization) roster with workspace titles, departments, and per-team assignments. Visibility depends on your role: workspace admins see everyone, team admins and viewers see their teams, managers see their direct reports, plain members see an empty roster. Rates are only returned for workspace admins and finance grantees. Get workspace_id from get_current_user (org.id)."
     },
     {
       "name": "query_org_context",
