@@ -1,10 +1,10 @@
 name: "[Verify] Published bundle"
 
 # This repository is a generated mirror of mcp/bundle in rize-io/sol. These
-# checks verify what was actually published: the commit carries its source
-# provenance, the extension loads on Claude Desktop's Node runtime, and the
-# shipped JavaScript passes SAST. Findings are report-only; scanner failure
-# fails the run.
+# checks verify what was actually published: the last artifact-changing commit
+# names its Sol source (format check only, not proof of an approved source),
+# the extension loads on Claude Desktop's Node runtime, and the shipped
+# JavaScript passes SAST. Findings are report-only; scanner failure fails the run.
 
 on:
   pull_request:
@@ -27,26 +27,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
-      # Every commit on main is expected to be a publish from the Sol monorepo
-      # and to name the exact source commit it was generated from.
-      - name: Check the publish commit names its source commit
-        run: |
-          set -euo pipefail
-          body=$(git log -1 --format=%B "$GITHUB_SHA")
-          version=$(jq -r '.version' manifest.json)
-          if ! grep -Eq "^Mirrored from rize-io/sol@[0-9a-f]{40}\.$" <<<"$body"; then
-            echo "Commit ${GITHUB_SHA} does not reference a rize-io/sol source commit." >&2
-            exit 1
-          fi
-          if ! grep -Fq "Publish Rize desktop extension ${version}" <<<"$body"; then
-            echo "Commit subject does not match manifest version ${version}." >&2
-            exit 1
-          fi
-          {
-            echo '## Mirror provenance'
-            grep -E '^Mirrored from rize-io/sol@' <<<"$body"
-          } >> "$GITHUB_STEP_SUMMARY"
+      # Controls-only pushes (.github/ changes) re-validate the previous publish
+      # commit; artifact pushes must be publisher commits naming their source.
+      - name: Check the last artifact commit names its source commit
+        run: .github/scripts/check-provenance.sh "$GITHUB_SHA"
 
   bundle:
     name: Verify bundle (Node ${{ matrix.node }}, ${{ matrix.os }})
@@ -111,25 +98,33 @@ jobs:
         with:
           name: semgrep-report
           path: semgrep-report.json
+          if-no-files-found: error
           retention-days: 90
 
   verified:
     name: SOC2 bundle verification
     if: always()
-    needs: [bundle, semgrep]
+    needs: [provenance, bundle, semgrep]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     env:
+      PROVENANCE_RESULT: ${{ needs.provenance.result }}
       BUNDLE_RESULT: ${{ needs.bundle.result }}
       SEMGREP_RESULT: ${{ needs.semgrep.result }}
     steps:
       - name: Check every job completed
         run: |
           set -euo pipefail
-          printf 'Bundle: %s\nSemgrep: %s\n' "$BUNDLE_RESULT" "$SEMGREP_RESULT"
+          printf 'Provenance: %s\nBundle: %s\nSemgrep: %s\n' \
+            "$PROVENANCE_RESULT" "$BUNDLE_RESULT" "$SEMGREP_RESULT"
           if [ "$BUNDLE_RESULT" != 'success' ] || [ "$SEMGREP_RESULT" != 'success' ]; then
             echo 'Bundle tests and SAST must both complete successfully.' >&2
             exit 1
           fi
+          # Provenance only runs on pushes to main; a pull_request run skips it.
+          case "$PROVENANCE_RESULT" in
+            success|skipped) ;;
+            *) echo 'Mirror provenance must pass when it runs.' >&2; exit 1 ;;
+          esac
           echo 'Bundle verified. SAST findings remain report-only.' >> "$GITHUB_STEP_SUMMARY"
