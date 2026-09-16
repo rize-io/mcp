@@ -1,0 +1,148 @@
+name: "[Verify] Published bundle"
+
+# This repository is a generated mirror of mcp/bundle in rize-io/sol. These
+# checks verify what was actually published: the tree names its Sol source via
+# publish-provenance.json, or until the publisher emits it, via the publisher
+# commit message (format check only, not proof of an approved source), the
+# extension loads on Claude Desktop's Node runtime, and the shipped
+# JavaScript passes SAST. Findings are report-only; scanner failure fails the run.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    name: Mirror provenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Fetch the exact head and base commits
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$BASE_SHA" =~ ^0{40}$ ]]; then
+            git fetch --no-tags origin "$HEAD_SHA"
+          else
+            git fetch --no-tags origin "$HEAD_SHA" "$BASE_SHA"
+          fi
+
+      - name: Run the provenance validator fixtures
+        run: .github/scripts/check-provenance.test.sh
+
+      # Reads publish-provenance.json (or, before migration, the publisher commit
+      # message) from the exact head tree; PRs that change artifact files need
+      # the metadata, controls-only PRs re-validate the published tree.
+      - name: Check the head tree names its source commit
+        run: .github/scripts/check-provenance.sh "$EVENT_NAME" "$HEAD_SHA" "$BASE_SHA"
+
+  bundle:
+    name: Verify bundle (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Claude Desktop ships on macOS and Windows and provides Node 20+.
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install the bundle's runtime dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --no-package-lock --omit=dev
+
+      - name: Syntax-check the server
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in server/*.js; do node --check "$file"; done
+
+      - name: Run bundle tests
+        run: node --test .github/scripts/bundle.test.mjs
+
+  semgrep:
+    name: SAST — Semgrep (bundle)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Semgrep
+        run: |
+          set -euo pipefail
+          pipx install semgrep==1.176.1
+          semgrep scan --config p/ci --config p/security-audit \
+            --metrics off \
+            --json --output semgrep-report.json \
+            server .github/scripts
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from collections import Counter
+          report = json.load(open('semgrep-report.json'))
+          if report['errors']:
+              raise SystemExit(f"Semgrep reported {len(report['errors'])} scan errors")
+          results = report['results']
+          by_sev = Counter(r['extra']['severity'] for r in results)
+          print('## Semgrep findings')
+          print(f"Total: {len(results)}")
+          for sev, n in by_sev.most_common():
+              print(f"- {sev}: {n}")
+          EOF
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          if-no-files-found: error
+          retention-days: 90
+
+  verified:
+    name: SOC2 bundle verification
+    if: always()
+    needs: [provenance, bundle, semgrep]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      PROVENANCE_RESULT: ${{ needs.provenance.result }}
+      BUNDLE_RESULT: ${{ needs.bundle.result }}
+      SEMGREP_RESULT: ${{ needs.semgrep.result }}
+    steps:
+      - name: Check every job completed
+        run: |
+          set -euo pipefail
+          printf 'Provenance: %s\nBundle: %s\nSemgrep: %s\n' \
+            "$PROVENANCE_RESULT" "$BUNDLE_RESULT" "$SEMGREP_RESULT"
+          if [ "$BUNDLE_RESULT" != 'success' ] || [ "$SEMGREP_RESULT" != 'success' ]; then
+            echo 'Bundle tests and SAST must both complete successfully.' >&2
+            exit 1
+          fi
+          if [ "$PROVENANCE_RESULT" != 'success' ]; then
+            echo 'Mirror provenance must complete successfully.' >&2
+            exit 1
+          fi
+          echo 'Bundle verified. SAST findings remain report-only.' >> "$GITHUB_STEP_SUMMARY"
