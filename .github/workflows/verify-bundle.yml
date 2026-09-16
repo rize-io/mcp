@@ -1,0 +1,135 @@
+name: "[Verify] Published bundle"
+
+# This repository is a generated mirror of mcp/bundle in rize-io/sol. These
+# checks verify what was actually published: the commit carries its source
+# provenance, the extension loads on Claude Desktop's Node runtime, and the
+# shipped JavaScript passes SAST. Findings are report-only; scanner failure
+# fails the run.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    name: Mirror provenance
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Every commit on main is expected to be a publish from the Sol monorepo
+      # and to name the exact source commit it was generated from.
+      - name: Check the publish commit names its source commit
+        run: |
+          set -euo pipefail
+          body=$(git log -1 --format=%B "$GITHUB_SHA")
+          version=$(jq -r '.version' manifest.json)
+          if ! grep -Eq "^Mirrored from rize-io/sol@[0-9a-f]{40}\.$" <<<"$body"; then
+            echo "Commit ${GITHUB_SHA} does not reference a rize-io/sol source commit." >&2
+            exit 1
+          fi
+          if ! grep -Fq "Publish Rize desktop extension ${version}" <<<"$body"; then
+            echo "Commit subject does not match manifest version ${version}." >&2
+            exit 1
+          fi
+          {
+            echo '## Mirror provenance'
+            grep -E '^Mirrored from rize-io/sol@' <<<"$body"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  bundle:
+    name: Verify bundle (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Claude Desktop ships on macOS and Windows and provides Node 20+.
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install the bundle's runtime dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --no-package-lock --omit=dev
+
+      - name: Syntax-check the server
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in server/*.js; do node --check "$file"; done
+
+      - name: Run bundle tests
+        run: node --test .github/scripts/bundle.test.mjs
+
+  semgrep:
+    name: SAST — Semgrep (bundle)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Semgrep
+        run: |
+          set -euo pipefail
+          pipx install semgrep==1.176.1
+          semgrep scan --config p/ci --config p/security-audit \
+            --metrics off \
+            --json --output semgrep-report.json \
+            server .github/scripts
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from collections import Counter
+          report = json.load(open('semgrep-report.json'))
+          if report['errors']:
+              raise SystemExit(f"Semgrep reported {len(report['errors'])} scan errors")
+          results = report['results']
+          by_sev = Counter(r['extra']['severity'] for r in results)
+          print('## Semgrep findings')
+          print(f"Total: {len(results)}")
+          for sev, n in by_sev.most_common():
+              print(f"- {sev}: {n}")
+          EOF
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          retention-days: 90
+
+  verified:
+    name: SOC2 bundle verification
+    if: always()
+    needs: [bundle, semgrep]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      BUNDLE_RESULT: ${{ needs.bundle.result }}
+      SEMGREP_RESULT: ${{ needs.semgrep.result }}
+    steps:
+      - name: Check every job completed
+        run: |
+          set -euo pipefail
+          printf 'Bundle: %s\nSemgrep: %s\n' "$BUNDLE_RESULT" "$SEMGREP_RESULT"
+          if [ "$BUNDLE_RESULT" != 'success' ] || [ "$SEMGREP_RESULT" != 'success' ]; then
+            echo 'Bundle tests and SAST must both complete successfully.' >&2
+            exit 1
+          fi
+          echo 'Bundle verified. SAST findings remain report-only.' >> "$GITHUB_STEP_SUMMARY"
