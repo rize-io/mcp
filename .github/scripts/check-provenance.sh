@@ -1,39 +1,19 @@
 #!/usr/bin/env bash
 # Validates that the published artifact files in a Git tree name their
-# rize-io/sol source. Everything is read from the exact target tree with
-# `git show <rev>:<path>`; the working tree is never consulted.
+# rize-io/sol source, reading only from the target tree (`git show <rev>:<path>`).
 #
 # Usage: check-provenance.sh <push|pull_request> <head-rev> [<base-rev>]
-#   head-rev  the tree being validated (the pushed commit or the PR head)
-#   base-rev  the previous main head (push) or the PR base; empty/omitted when
-#             unknown. Needs full history.
 #
-# Durable metadata: a root publish-provenance.json, schema_version 1:
-#   {
-#     "schema_version": 1,
-#     "source_repository": "rize-io/sol",
-#     "source_sha": "<40 lowercase hex>",
-#     "source_pull_request": <positive integer>,
-#     "manifest_version": "<must equal manifest.json .version in the same tree>",
-#     "source_run_url": "https://github.com/rize-io/sol/actions/runs/<positive integer>"
-#   }
-# Exactly these keys, these types, these values. When the file exists it is the
-# only thing checked: malformed or invalid metadata fails and never falls back
-# to commit messages. Once metadata exists in the base or anywhere in the head's
-# history, removing it fails. When a base is known and artifact files (anything
-# outside .github/ other than the metadata itself) changed, the metadata must
-# have changed too, so stale metadata cannot ride along with new content.
+# With a root publish-provenance.json (schema_version 1) at head, that file is
+# strictly validated and commit messages are ignored. Once the file exists in the
+# base or anywhere in either history, its absence fails. Without it, the last
+# commit touching artifact files (outside .github/) must be a publisher commit:
+# subject `Publish Rize desktop extension <manifest version>`, body line
+# `Mirrored from rize-io/sol@<40 hex>.`; on pull_request only controls-only
+# changes may use this legacy path.
 #
-# Legacy (pre-migration) trees have no metadata. Then the last commit touching
-# artifact files must be a publisher commit whose subject (%s) is exactly
-# `Publish Rize desktop extension <manifest.json version>` and whose body (%b)
-# has a line matching `Mirrored from rize-io/sol@<40 hex>.`. On pull_request this legacy path is allowed only when
-# the PR changes nothing outside .github/ (controls-only); artifact changes in a
-# PR require the metadata file.
-#
-# Both paths validate the source-reference format only. They do not prove the
-# referenced Sol commit was reviewed or tested, and they are not a cryptographic
-# attestation of the published content.
+# Both paths check the source-reference format only: not proof the source was
+# reviewed or tested, and not a cryptographic attestation of content.
 set -euo pipefail
 
 METADATA_PATH=publish-provenance.json
@@ -72,35 +52,49 @@ tree_show() { git show "${1}:${2}"; }
 manifest_version=$(tree_show "$head" manifest.json | jq -er '.version | select(type == "string")') \
   || fail "manifest.json at ${head} has no string .version."
 
-# Paths that changed between the base (via merge-base) and the head, excluding
-# .github/. Empty output means a controls-only change.
+# Paths changed between merge-base(base, head) and head, excluding .github/.
 changed_since_base=''
+diff_from=''
 if [ -n "$base" ]; then
-  merge_base=$(git merge-base "$base" "$head" 2>/dev/null || true)
-  diff_from=${merge_base:-$base}
+  if merge_base=$(git merge-base "$base" "$head"); then
+    diff_from=$merge_base
+  else
+    status=$?
+    [ "$status" -eq 1 ] || fail "git merge-base failed with status ${status}."
+    diff_from=$base
+  fi
   changed_since_base=$(git diff --name-only "$diff_from" "$head" -- . ':(exclude).github')
 fi
-artifact_paths_changed=$(grep -Fxv "$METADATA_PATH" <<<"$changed_since_base" || true)
+artifact_paths_changed=''
 metadata_changed=false
-if grep -Fxq "$METADATA_PATH" <<<"$changed_since_base"; then metadata_changed=true; fi
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  if [ "$path" = "$METADATA_PATH" ]; then
+    metadata_changed=true
+  else
+    artifact_paths_changed+="${path}"$'\n'
+  fi
+done <<<"$changed_since_base"
 
 if tree_has "$head" "$METADATA_PATH"; then
   metadata=$(tree_show "$head" "$METADATA_PATH")
-  # Compare against the literal `true` so empty input (no jq output) also fails.
-  verdict=$(jq -n --arg repo "$SOURCE_REPOSITORY" --arg manifest_version "$manifest_version" '
+  # jq prints exactly one `true` for valid metadata; empty input prints nothing.
+  if ! verdict=$(jq -n --arg repo "$SOURCE_REPOSITORY" --arg manifest_version "$manifest_version" '
     [inputs] | if length != 1 then false else .[0] |
       type == "object"
       and (keys == ["manifest_version", "schema_version", "source_pull_request",
                     "source_repository", "source_run_url", "source_sha"])
       and .schema_version == 1
       and .source_repository == $repo
-      and (.source_sha | type == "string" and test("^[0-9a-f]{40}$"))
+      and (.source_sha | type == "string" and test("\\A[0-9a-f]{40}\\z"))
       and (.source_pull_request | type == "number" and . == floor and . >= 1)
       and (.manifest_version | type == "string" and . == $manifest_version)
       and (.source_run_url | type == "string"
-           and test("^https://github\\.com/" + $repo + "/actions/runs/[1-9][0-9]*$"))
+           and test("\\Ahttps://github\\.com/" + $repo + "/actions/runs/[1-9][0-9]*\\z"))
     end
-  ' <<<"$metadata" 2>/dev/null || true)
+  ' <<<"$metadata" 2>&1); then
+    fail "${METADATA_PATH} at ${head} is not valid schema_version 1 provenance: ${verdict}"
+  fi
   [ "$verdict" = true ] \
     || fail "${METADATA_PATH} at ${head} is not valid schema_version 1 provenance for manifest ${manifest_version}."
 
@@ -123,13 +117,15 @@ if tree_has "$head" "$METADATA_PATH"; then
   exit 0
 fi
 
-# No metadata at head. Refuse if it existed before: in the base, or anywhere in
-# the head's own history (introduced, then removed).
+# No metadata at head. Refuse if it existed before: in the base tree, or in any
+# commit reachable from head or base (--full-history so a merge that dropped the
+# file does not hide the parent that introduced it).
 if [ -n "$base" ] && tree_has "$base" "$METADATA_PATH"; then
   fail "${METADATA_PATH} exists at ${base} but not at ${head}; provenance metadata cannot be removed."
 fi
-if [ -n "$(git log -1 --format=%H "$head" -- "$METADATA_PATH")" ]; then
-  fail "${METADATA_PATH} was introduced in the history of ${head} and is now missing; provenance metadata cannot be removed."
+introduced=$(git log --full-history -1 --format=%H "$head" ${base:+"$base"} -- "$METADATA_PATH")
+if [ -n "$introduced" ]; then
+  fail "${METADATA_PATH} was introduced in reachable history (${introduced}) and is missing at ${head}; provenance metadata cannot be removed."
 fi
 
 if [ "$event" = pull_request ]; then

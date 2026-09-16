@@ -272,6 +272,9 @@ invalid_metadata_case wrong-run-repository '{"schema_version":1,"source_reposito
 invalid_metadata_case trailing-run-slash '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/1/"}'
 invalid_metadata_case nonnumeric-run-id '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/abc"}'
 invalid_metadata_case query-run-url '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/1?x=1"}'
+invalid_metadata_case newline-source-sha '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'\n","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/123456789"}'
+invalid_metadata_case newline-run-url '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/1\n"}'
+invalid_metadata_case leading-newline-source-sha '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"\n'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://github.com/rize-io/sol/actions/runs/123456789"}'
 invalid_metadata_case evil-run-url '{"schema_version":1,"source_repository":"rize-io/sol","source_sha":"'"$SOURCE_A"'","source_pull_request":16002,"manifest_version":"1.0.0","source_run_url":"https://evil.example/github.com/rize-io/sol/actions/runs/1"}'
 
 setup_valid_metadata_main removal
@@ -286,6 +289,27 @@ git -C "$CURRENT_REPO" switch -q main
 git -C "$CURRENT_REPO" merge --no-ff -q remove-metadata -m 'Merge removal'
 expect_fail 'metadata removal push with base' 'cannot be removed' push main "$VALID_METADATA_MAIN"
 expect_fail 'metadata removal push without base' 'cannot be removed' push main
+
+new_repo ours-merge-hides-metadata
+publisher_commit 1.0.0 "$SOURCE_A"
+LEGACY_MAIN=$(git -C "$CURRENT_REPO" rev-parse HEAD)
+git -C "$CURRENT_REPO" switch -q -c add-metadata
+write_metadata 1.0.0 "$SOURCE_A"
+git -C "$CURRENT_REPO" add publish-provenance.json
+git -C "$CURRENT_REPO" commit -qm 'Add provenance metadata'
+git -C "$CURRENT_REPO" switch -q main
+git -C "$CURRENT_REPO" merge -q -s ours --no-ff add-metadata -m 'Merge add-metadata keeping legacy tree'
+expect_fail 'ours-merge hiding metadata on the other parent (push with base)' \
+  'cannot be removed' push main "$LEGACY_MAIN"
+expect_fail 'ours-merge hiding metadata on the other parent (push without base)' \
+  'cannot be removed' push main
+git -C "$CURRENT_REPO" switch -q -c controls-after-ours-merge
+mkdir -p "$CURRENT_REPO/.github"
+printf '%s\n' 'control' >"$CURRENT_REPO/.github/foo"
+git -C "$CURRENT_REPO" add .github/foo
+git -C "$CURRENT_REPO" commit -qm 'Tighten checks'
+expect_fail 'controls-only pull request on top of hidden-metadata merge' \
+  'cannot be removed' pull_request controls-after-ours-merge main
 
 new_repo stale-branch
 publisher_commit 1.0.0 "$SOURCE_A"
